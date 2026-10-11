@@ -10,8 +10,8 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Locale;
@@ -32,7 +32,7 @@ import java.io.FileOutputStream;
  * <p><b>Features + limitations: </b><ul>
  * <p/>
  * <li> Only one Java file </li>
- * <li> Java 1.1 compatible </li>
+ * <li> Java 17 compatible </li>
  * <li> Released as open source, Modified BSD licence </li>
  * <li> No fixed config files, logging, authorization etc. (Implement yourself if you need them.) </li>
  * <li> Supports parameter parsing of GET and POST methods </li>
@@ -81,21 +81,15 @@ public class NanoHTTPd {
     public Response serve(String uri, String method, Properties header, Properties parms, Properties files) {
         System.out.println(method + " '" + uri + "' ");
 
-        Enumeration e = header.propertyNames();
-        while (e.hasMoreElements()) {
-            String value = (String) e.nextElement();
+        for (String value : header.stringPropertyNames()) {
             System.out.println("  HDR: '" + value + "' = '" +
                     header.getProperty(value) + "'");
         }
-        e = parms.propertyNames();
-        while (e.hasMoreElements()) {
-            String value = (String) e.nextElement();
+        for (String value : parms.stringPropertyNames()) {
             System.out.println("  PRM: '" + value + "' = '" +
                     parms.getProperty(value) + "'");
         }
-        e = files.propertyNames();
-        while (e.hasMoreElements()) {
-            String value = (String) e.nextElement();
+        for (String value : files.stringPropertyNames()) {
             System.out.println("  UPLOADED: '" + value + "' = '" +
                     files.getProperty(value) + "'");
         }
@@ -540,14 +534,14 @@ public class NanoHTTPd {
         public int[] getBoundaryPositions(byte[] b, byte[] boundary) {
             int matchcount = 0;
             int matchbyte = -1;
-            Vector matchbytes = new Vector();
+            Vector<Integer> matchbytes = new Vector<>();
             for (int i = 0; i < b.length; i++) {
                 if (b[i] == boundary[matchcount]) {
                     if (matchcount == 0)
                         matchbyte = i;
                     matchcount++;
                     if (matchcount == boundary.length) {
-                        matchbytes.addElement(new Integer(matchbyte));
+                        matchbytes.addElement(matchbyte);
                         matchcount = 0;
                         matchbyte = -1;
                     }
@@ -559,7 +553,7 @@ public class NanoHTTPd {
             }
             int[] ret = new int[matchbytes.size()];
             for (int i = 0; i < ret.length; i++) {
-                ret[i] = ((Integer) matchbytes.elementAt(i)).intValue();
+                ret[i] = matchbytes.elementAt(i);
             }
             return ret;
         }
@@ -606,7 +600,7 @@ public class NanoHTTPd {
          */
         private String decodePercent(String str) throws InterruptedException {
             try {
-                StringBuffer sb = new StringBuffer();
+                StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < str.length(); i++) {
                     char c = str.charAt(i);
                     switch (c) {
@@ -680,9 +674,7 @@ public class NanoHTTPd {
                     pw.print("Date: " + gmtFrmt.format(new Date()) + "\r\n");
 
                 if (header != null) {
-                    Enumeration e = header.keys();
-                    while (e.hasMoreElements()) {
-                        String key = (String) e.nextElement();
+                    for (String key : header.stringPropertyNames()) {
                         String value = header.getProperty(key);
                         pw.print(key + ": " + value + "\r\n");
                     }
@@ -730,9 +722,7 @@ public class NanoHTTPd {
             else if (tok.equals(" "))
                 newUri += "%20";
             else {
-                newUri += URLEncoder.encode(tok);
-                // For Java 1.4 you'll want to use this instead:
-                // try { newUri += URLEncoder.encode( tok, "UTF-8" ); } catch ( java.io.UnsupportedEncodingException uee ) {}
+                newUri += URLEncoder.encode(tok, StandardCharsets.UTF_8);
             }
         }
         return newUri;
@@ -843,7 +833,7 @@ public class NanoHTTPd {
             String mime = null;
             int dot = f.getCanonicalPath().lastIndexOf('.');
             if (dot >= 0)
-                mime = (String) theMimeTypes.get(f.getCanonicalPath().substring(dot + 1).toLowerCase());
+                mime = theMimeTypes.get(f.getCanonicalPath().substring(dot + 1).toLowerCase());
             if (mime == null)
                 mime = MIME_DEFAULT_BINARY;
 
@@ -878,7 +868,7 @@ public class NanoHTTPd {
     /**
      * Hashtable mapping (String)FILENAME_EXTENSION -> (String)MIME_TYPE
      */
-    private static Hashtable theMimeTypes = new Hashtable();
+    private static Hashtable<String, String> theMimeTypes = new Hashtable<>();
 
     static {
         StringTokenizer st = new StringTokenizer(
